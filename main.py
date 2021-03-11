@@ -42,9 +42,9 @@ class ModifiedVGG16Model(torch.nn.Module):
         return x
 
 class Trainer:
-    def __init__(self, model, optimizer):
-        self.train_data_loader = dataset.loader() # modified
-        self.test_data_loader = dataset.test_loader() #modified
+    def __init__(self, train_path, test_path, model, optimizer):
+        self.train_data_loader = dataset.loader(train_path)
+        self.test_data_loader = dataset.test_loader(test_path)
 
         self.optimizer = optimizer
 
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     if args.train:
         model = ModifiedVGG16Model().cuda()
         optimizer = optim.SGD(model.classifier.parameters(), lr=0.0001, momentum=0.99)
-        trainer = Trainer(model, optimizer)
+        trainer = Trainer(args.train_path, args.test_path, model, optimizer)
 
         trainer.train(epoches = 10)
         torch.save(model, "model")
