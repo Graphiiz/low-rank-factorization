@@ -2,7 +2,7 @@
 
 * The codes are from https://github.com/jacobgil/pytorch-tensor-decompositions
 * The original codes from the link above runs using Kaggle Cats and Dogs dataset
-* The codes in this repository is modified to be run with CIFAR-10 dataset
+* The codes in this repository are modified to be run with CIFAR-10 dataset
 
 # Here is the original README
 
