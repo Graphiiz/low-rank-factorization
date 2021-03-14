@@ -1,169 +1,258 @@
 import torch
-from torch.autograd import Variable
-from torchvision import models
-import sys
-import numpy as np
-import torchvision
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import dataset
+import torch.nn.functional as F
+import torch.nn.parallel
+import torch.backends.cudnn as cudnn
+import torch.utils.data as data
+
+import numpy as np
+
+import torchvision
+import torchvision.datasets as datasets
+import torchvision.models as models
+import torchvision.transforms as transforms
+
+import os
 import argparse
-from operator import itemgetter
-import time
-import tensorly as tl
-import tensorly
-from itertools import chain
-from decompositions import cp_decomposition_conv_layer, tucker_decomposition_conv_layer
 
-# VGG16 based network for classifying between dogs and cats.
-# After training this will be an over parameterized network,
-# with potential to shrink it.
-class ModifiedVGG16Model(torch.nn.Module):
-    def __init__(self, model=None):
-        super(ModifiedVGG16Model, self).__init__()
+from PIL import Image
 
-        model = models.vgg16(pretrained=True)
-        self.features = model.features
+import glob
 
-        self.classifier = nn.Sequential(
-            nn.Dropout(),
-            nn.Linear(25088, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Linear(4096, 2))
-
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1)
-        x = self.classifier(x)
-        return x
-
-class Trainer:
-    def __init__(self, train_path, test_path, model, optimizer):
-        self.train_data_loader = dataset.loader(train_path)
-        self.test_data_loader = dataset.test_loader(test_path)
-
-        self.optimizer = optimizer
-
-        self.model = model
-        self.criterion = torch.nn.CrossEntropyLoss()
-        self.model.train()
-
-    def test(self):
-        self.model.cuda()
-        self.model.eval()
-        correct = 0
-        total = 0
-        total_time = 0
-        for i, (batch, label) in enumerate(self.test_data_loader):
-            batch = batch.cuda()
-            t0 = time.time()
-            output = model(Variable(batch)).cpu()
-            t1 = time.time()
-            total_time = total_time + (t1 - t0)
-            pred = output.data.max(1)[1]
-            correct += pred.cpu().eq(label).sum()
-            total += label.size(0)
-        
-        print("Accuracy :", float(correct) / total)
-        print("Average prediction time", float(total_time) / (i + 1), i + 1)
-
-        self.model.train()
-
-    def train(self, epoches=10):
-        for i in range(epoches):
-            print("Epoch: ", i)
-            self.train_epoch()
-            self.test()
-        print("Finished fine tuning.")
-        
-
-    def train_batch(self, batch, label):
-        self.model.zero_grad()
-        input = Variable(batch)
-        self.criterion(self.model(input), Variable(label)).backward()
-        self.optimizer.step()
-
-    def train_epoch(self):
-        for i, (batch, label) in enumerate(self.train_data_loader):
-            self.train_batch(batch.cuda(), label.cuda())
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train", dest="train", action="store_true")
-    parser.add_argument("--decompose", dest="decompose", action="store_true")
-    parser.add_argument("--fine_tune", dest="fine_tune", action="store_true")
-    parser.add_argument("--train_path", type = str, default = "train")
-    parser.add_argument("--test_path", type = str, default = "test")
-    parser.add_argument("--cp", dest="cp", action="store_true", \
-        help="Use cp decomposition. uses tucker by default")
-    parser.set_defaults(train=False)
-    parser.set_defaults(decompose=False)
-    parser.set_defaults(fine_tune=False)
-    parser.set_defaults(cp=False)    
-    args = parser.parse_args()
-    return args
-
-if __name__ == '__main__':
-    args = get_args()
-    tl.set_backend('pytorch')
-
-    if args.train:
-        model = ModifiedVGG16Model().cuda()
-        optimizer = optim.SGD(model.classifier.parameters(), lr=0.0001, momentum=0.99)
-        trainer = Trainer(args.train_path, args.test_path, model, optimizer)
-
-        trainer.train(epoches = 10)
-        torch.save(model, "model")
-
-    elif args.decompose:
-        model = torch.load("model").cuda()
-        model.eval()
-        model.cpu()
-        N = len(model.features._modules.keys())
-        for i, key in enumerate(model.features._modules.keys()):
-
-            if i >= N - 2:
-                break
-            if isinstance(model.features._modules[key], torch.nn.modules.conv.Conv2d):
-                conv_layer = model.features._modules[key]
-                if args.cp:
-                    rank = max(conv_layer.weight.data.numpy().shape)//3
-                    decomposed = cp_decomposition_conv_layer(conv_layer, rank)
-                else:
-                    decomposed = tucker_decomposition_conv_layer(conv_layer)
-
-                model.features._modules[key] = decomposed
-
-            torch.save(model, 'decomposed_model')
+#import relative .py files
+import dataset
+import lenet
+import decomposition
 
 
-    elif args.fine_tune:
-        base_model = torch.load("decomposed_model")
-        model = torch.nn.DataParallel(base_model)
+parser = argparse.ArgumentParser(description='PyTorch CIFAR10')
+#train,test arguments
+parser.add_argument('--train', action='store_true',
+                    help='train mode')
+parser.add_argument('--epoch', default=200, type=int, help='number of epochs tp train for')
+parser.add_argument('--gamma', default=0.5, type=int, help='gamma for learning rate scheduler')
+parser.add_argument('--step-size', default=50, type=int, dest='step_size',help='gamma for learning rate scheduler')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
+parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
+parser.add_argument('--test', action='store_true', help='test mode, model is required')
+parser.add_argument('--test-decomp', dest='test_decomp', action='store_true', help='test decomp model mode, decomp model is required')
+#parser.add_argument('--resume', '-r', action='store_true',help='resume from checkpoint')
+parser.add_argument('--model', '-m', type=str,
+                    help='path to saved model or .pth file')
+#decomposition arguments
+parser.add_argument('--decomp', '-d', action='store_true',
+                    help='do rank decomposition, model is required')
+parser.add_argument("--type", dest="decompose_type", default="tucker", 
+                    choices=["tucker", "cp"], #original is choices=["tucker", "cp", "channel", "depthwise", "spatial"]
+                    help="type of decomposition, if None then no decomposition")
+parser.add_argument("-r", "--rank", dest="rank", type=int, default=None,
+                    help="use pre-specified rank for all layers")
+parser.add_argument("--conv-ranks", dest="conv_ranks", nargs='+', type=int, default=None,
+                    help="a list of ranks specifying rank for each convolution layer")                    
+parser.add_argument("--exclude-first-conv", dest="exclude_first_conv", action="store_true",
+                    help="avoid decomposing first convolution layer")
+parser.add_argument("--exclude-linears", dest="exclude_linears", action="store_true",
+                    help="avoid decomposing fully connected layers")
+#fine-tuning arguments
+parser.add_argument('--fine-tuning', '-ft', dest='fine_tuning',action='store_true', #dest='xxx' means store value in args.xxx
+                    help='do fine-tuning, model is required')
 
-        for param in model.parameters():
-            param.requires_grad = True
-
-        print(model)
-        model.cuda()        
-
-        if args.cp:
-            optimizer = optim.SGD(model.parameters(), lr=0.000001)
-        else:
-            # optimizer = optim.SGD(chain(model.features.parameters(), \
-            #     model.classifier.parameters()), lr=0.01)
-            optimizer = optim.SGD(model.parameters(), lr=0.001)
 
 
-        trainer = Trainer(args.train_path, args.test_path, model, optimizer)
+args = parser.parse_args()
 
-        trainer.test()
-        model.cuda()
-        model.train()
-        trainer.train(epoches=100)
-        model.eval()
-        trainer.test()
+best_acc = 0
+
+#function
+
+#train
+def train(epoch):
+    model.to(device)
+    model.train()
+    train_loss = 0 #to be used later, don't use it yet
+    correct = 0
+    total = 0
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+    print(f'finish epoch #{epoch}')
+    print(f'Training accuracy = {correct/total}')
+    
+def test(epoch):
+    global best_acc #declare this allow you make changes to global variable
+    model.eval()
+    test_loss = 0 #to be used later, don't use it yet
+    correct = 0
+    total = 0
+    with torch.no_grad():
+      for batch_idx, (inputs, targets) in enumerate(testloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+
+        test_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+    print(f'Test accuracy = {correct/total}')
+    acc = correct/len(testloader)
+    if acc > best_acc:
+        print('Saving..')
+        state = {
+            'model': model.state_dict(),
+            'acc': acc,
+            'epoch': epoch,
+        }
+        if not os.path.isdir('checkpoint'):
+            os.mkdir('checkpoint')
+        torch.save(state, './checkpoint/ckpt.pth')
+        best_acc = acc
+
+            
+#main
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+if args.model is not None:
+    if (args.test or args.decomp) == False:
+        print('test mode or decomp mode is required')
+        exit(0)
+if args.train:
+    print('Create model...')
+    model = lenet.LeNet().to(device)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    criterion = nn.CrossEntropyLoss()
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
+    print('Start training the model...')
+    print('==> Preparing data..')
+    trainloader = dataset.train_loader()
+    testloader = dataset.test_loader()
+    print('==> Datasets are ready')
+    num_epoch = args.epoch
+    for epoch in range(num_epoch):
+        train(epoch)
+        test(epoch)
+        scheduler.step()
+
+if args.test:
+    if args.model is None: 
+        print('.pth file of pretrained model is required')
+        exit(0)
+    print('Load model...')
+    info_dict = torch.load(args.model) #see format of .pth file in train function
+    model = lenet.LeNet()
+    model.load_state_dict(info_dict['model'])
+    print('load model successfully')
+    model.to(device)
+    model.eval()
+    print('Start testing the model...')
+    test_loss = 0 #to be used later, don't use it yet
+    correct = 0
+    total = 0
+    with torch.no_grad():
+      for batch_idx, (inputs, targets) in enumerate(testloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+
+        test_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+    print(f'Test accuracy = {correct/len(testloader)}')
+
+if args.decomp:
+    if args.model is None: 
+        print('.pth file of pretrained model is required')
+        exit(0)
+    print('Load model...')
+    info_dict = torch.load(args.model,map_location=torch.device('cpu')) #see format of .pth file in train function
+    loaded_model = lenet.LeNet() # ti make it general when we use different models
+    loaded_model.load_state_dict(info_dict['model'])
+    print('load model successfully')
+    loaded_model.eval()
+    loaded_model.cpu()
+    if args.decompose_type == 'tucker':
+        rank = [2,2] #for tucker, rank is the number input and output channel of R3/R4 defined by [2,2] for example.
+        ranks = None
+        decomp_config = {"criterion": None,"threshold": None,"rank": rank, "exclude_first_conv": False, "exclude_linears": False, "conv_ranks": ranks, "mask_conv_layers": None}
+        decomp_model = decomposition.decompose_model(loaded_model, 'tucker', decomp_config)
+        state = {
+            'model': decomp_model.state_dict(),
+            'decom_method': 'tucker',
+        }
+        if not os.path.isdir('decomposed_model'):
+            os.mkdir('decomposed_model')
+        torch.save(state, './decomposed_model/tucker_model.pth')
+    elif args.decompose_type == 'cp':
+        rank = None
+        ranks = None
+        decomp_config = {"criterion": None,"threshold": None,"rank": rank, "exclude_first_conv": False, "exclude_linears": False, "conv_ranks": ranks, "mask_conv_layers": None}
+        decomp_model = decomposition.decompose_model(loaded_model, 'cp', decomp_config)
+        state = {
+            'model': decomp_model.state_dict(),
+            'decom_method': 'cp',
+        }
+        if not os.path.isdir('decomposed_model'):
+            os.mkdir('decomposed_model')
+        torch.save(state, './decomposed_model/cp_model.pth')
+    else:
+        print('Invalid arguments: "tucker" or "cp" required')
+    
+if args.fine_tuning:
+    print('load decomp model...')
+    info_dict = torch.load(args.model) #see format of .pth file in train function
+    model = lenet.decomp_LeNet()
+    model.load_state_dict(info_dict['model'])
+    print('load model successfully')
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    criterion = nn.CrossEntropyLoss()
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
+    print('Start fine-tuning the model...')
+    print('==> Preparing data..')
+    trainloader = dataset.train_loader()
+    testloader = dataset.test_loader()
+    print('==> Datasets are ready')
+    num_epoch = args.epoch
+    for epoch in range(num_epoch):
+        train(epoch)
+        #scheduler.step()
+
+if args.test_decomp:
+    if args.model is None: 
+        print('.pth file of pretrained model is required')
+        exit(0)
+    print('Load model...')
+    info_dict = torch.load(args.model) #see format of .pth file in train function
+    model = lenet.decom_LeNet()
+    model.load_state_dict(info_dict['model'])
+    print('load model successfully')
+    model.to(device)
+    model.eval()
+    print('Start testing the model...')
+    test_loss = 0 #to be used later, don't use it yet
+    correct = 0
+    total = 0
+    with torch.no_grad():
+      for batch_idx, (inputs, targets) in enumerate(testloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+
+        test_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+    print(f'Test accuracy = {correct/len(testloader)}')
+
+    
+
