@@ -12,7 +12,7 @@ A blog post about this can be found [here](https://jacobgil.github.io/deeplearni
 
 It depends on [TensorLy](https://github.com/tensorly/tensorly) for performing tensor decompositions.
 
-# Usage
+# Usage --To be modified
 
 - Train a model based on fine tuning VGG16: ``python main.py --train``.
 - There should be a dataset with two categories. One directory for each category. Training data should go into a directory called 'train'.  Testing data should go into a directory called 'test'. This can be controlled with the flags --train_path and --test_path.
