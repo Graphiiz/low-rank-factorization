@@ -101,8 +101,9 @@ def test(model):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-      print(f'original model acuracy: {correct/total}')
+      #print(f'model acuracy: {correct/total}')
     model.to('cpu')
+    return correct/total
 
 def fine_tune(model,lr=0.001, max_iter=5):
     model.to(device)
@@ -131,7 +132,7 @@ model.load_state_dict(info_dict['model'])
 pytorch_total_params = sum(p.numel() for p in model.parameters())
 print(f'total parameters of original model: {pytorch_total_params}')
 
-testloader = dataset.create_testset(args.dataset,args.batch_size)
+testloader = dataset.create_testset(args.dataset)
 test(model)
 
 ##measure inference time
@@ -146,6 +147,16 @@ ranks = None
 decomp_config = {"criterion": None,"threshold": None,"rank": rank, "exclude_first_conv": False, "exclude_linears": False, "conv_ranks": ranks, "mask_conv_layers": None}
 decomp_model = decomposition.decompose_model(model, 'tucker', decomp_config)
 
+decomp_acc = test(decomp_model)
+print(f'Decomp model accuracy: {decomp_acc}')
+
+##fine_tune
+if args.fine_tune:
+    trainloader = dataset.create_trainset(args.dataset,args.batch_size)
+    fine_tune(decomp_model,args.epoch)
+    ft_decomp_acc = test(decomp_model)
+    print(f'Decomp model accuracy after fine tuning: {ft_decomp_acc}')
+
 if args.save:
     state = {
         'model': decomp_model.state_dict(),
@@ -154,12 +165,6 @@ if args.save:
     if not os.path.isdir('decomposed_model'):
         os.mkdir('decomposed_model')
     torch.save(state, f'./decomposed_model/tucker_model_{args.model}.pth')
-
-##fine_tune
-if args.fine_tune:
-    trainloader = dataset.create_trainset(args.dataset,args.batch_size)
-    fine_tune(decomp_model,args.epoch)
-    test(decomp_model)
 
 new_pytorch_total_params = sum(p.numel() for p in model.parameters())
 print(f'total parameters of decomp model: {new_pytorch_total_params}')
