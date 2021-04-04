@@ -143,13 +143,13 @@ rank = None #for tucker, rank is the number input and output channel of R3/R4 de
 ranks = None
 decomp_config = {"criterion": None,"threshold": None,"rank": rank, "exclude_first_conv": False, "exclude_linears": False, "conv_ranks": ranks, "mask_conv_layers": None}
 decomp_model = decomposition.decompose_model(model, 'tucker', decomp_config)
-# state = {
-#     'model': decomp_model.state_dict(),
-#     'decom_method': 'tucker',
-# }
-# if not os.path.isdir('decomposed_model'):
-#     os.mkdir('decomposed_model')
-# torch.save(state, './decomposed_model/tucker_model.pth')
+state = {
+    'model': decomp_model.state_dict(),
+    'decom_method': 'tucker',
+}
+if not os.path.isdir('decomposed_model'):
+    os.mkdir('decomposed_model')
+torch.save(state, f'./decomposed_model/tucker_model_{args.model}.pth')
 
 ##fine_tune
 if args.fine_tune:
