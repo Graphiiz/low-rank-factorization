@@ -125,6 +125,8 @@ def fine_tune(model,lr=0.001, max_iter=5):
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
+            
+        scheduler.step()
   
 #main
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
