@@ -35,6 +35,7 @@ parser.add_argument('--batch_size', default=128, type=int,help='batch size')
 parser.add_argument('--fine_tune', action='store_true',help='do fine tuning')
 parser.add_argument('--save', action='store_true',help='save decomp model')
 parser.add_argument('--epoch', type=int, default=5, help='epoch for fine tuning')
+parser.add_argument('--lr', type=float, default=0.001, help='epoch for fine tuning')
 
 args = parser.parse_args()
 
@@ -109,6 +110,9 @@ def fine_tune(model,lr=0.001, max_iter=5):
     model.to(device)
     optimizer = optim.SGD(model.parameters(),lr = lr, momentum=0.9)
     criterion = nn.CrossEntropyLoss()
+    scheduler = None
+    if max_iter > 5:
+        scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=5,gamma=0.1)
     model.train()
     # train_loss = 0 #to be used later, don't use it yet
     # correct = 0
@@ -153,7 +157,7 @@ print(f'Decomp model accuracy: {decomp_acc}')
 ##fine_tune
 if args.fine_tune:
     trainloader = dataset.create_trainset(args.dataset,args.batch_size)
-    fine_tune(decomp_model,args.epoch)
+    fine_tune(decomp_model,args.lr,args.epoch)
     ft_decomp_acc = test(decomp_model)
     print(f'Decomp model accuracy after fine tuning: {ft_decomp_acc}')
 
