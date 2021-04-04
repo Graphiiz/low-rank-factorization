@@ -34,6 +34,7 @@ parser.add_argument('--dataset', default=None, type=str,help='dataset choices = 
 parser.add_argument('--batch_size', default=128, type=int,help='batch size')
 parser.add_argument('--fine_tune', action='store_true',help='do fine tuning')
 parser.add_argument('--save', action='store_true',help='save decomp model')
+parser.add_argument('--epoch', type=int, default=5, help='epoch for fine tuning')
 
 args = parser.parse_args()
 
@@ -157,7 +158,7 @@ if args.save:
 ##fine_tune
 if args.fine_tune:
     trainloader = dataset.create_trainset(args.dataset,args.batch_size)
-    fine_tune(decomp_model,5)
+    fine_tune(decomp_model,args.epoch)
     test(decomp_model)
 
 new_pytorch_total_params = sum(p.numel() for p in model.parameters())
