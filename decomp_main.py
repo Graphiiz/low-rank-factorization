@@ -33,6 +33,7 @@ parser.add_argument('--model', type=str, help='model type eg. Lenet, VGG16')
 parser.add_argument('--dataset', default=None, type=str,help='dataset choices = ["MNIST","CIFAR10"]')
 parser.add_argument('--batch_size', default=128, type=int,help='batch size')
 parser.add_argument('--fine_tune', action='store_true',help='do fine tuning')
+parser.add_argument('--save', action='store_true',help='save decomp model')
 
 args = parser.parse_args()
 
@@ -143,13 +144,15 @@ rank = None #for tucker, rank is the number input and output channel of R3/R4 de
 ranks = None
 decomp_config = {"criterion": None,"threshold": None,"rank": rank, "exclude_first_conv": False, "exclude_linears": False, "conv_ranks": ranks, "mask_conv_layers": None}
 decomp_model = decomposition.decompose_model(model, 'tucker', decomp_config)
-state = {
-    'model': decomp_model.state_dict(),
-    'decom_method': 'tucker',
-}
-if not os.path.isdir('decomposed_model'):
-    os.mkdir('decomposed_model')
-torch.save(state, f'./decomposed_model/tucker_model_{args.model}.pth')
+
+if args.save:
+    state = {
+        'model': decomp_model.state_dict(),
+        'decom_method': 'tucker',
+    }
+    if not os.path.isdir('decomposed_model'):
+        os.mkdir('decomposed_model')
+    torch.save(state, f'./decomposed_model/tucker_model_{args.model}.pth')
 
 ##fine_tune
 if args.fine_tune:
