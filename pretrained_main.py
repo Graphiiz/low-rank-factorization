@@ -181,10 +181,10 @@ for model_name in model_names:
         }
         if not os.path.isdir('decomposed_model'):
             os.mkdir('decomposed_model')
-        torch.save(state, f'./decomposed_model/tucker_model_{args.model}.pth')
+        torch.save(state, f'./decomposed_model/tucker_model_{model_name}.pth')
         
         log_dict = {'acc_log': acc_log}
-        with open(f'./decomposed_model/ft_log_{args.model}.json', 'w') as outfile:
+        with open(f'./decomposed_model/ft_log_{model_name}.json', 'w') as outfile:
             json.dump(log_dict, outfile)
 
     new_pytorch_total_params = sum(p.numel() for p in model.parameters())
