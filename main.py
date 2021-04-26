@@ -40,7 +40,7 @@ parser.add_argument('--lr', type=float, default=0.001, help='epoch for fine tuni
 args = parser.parse_args()
 
 def measure_time(model,repetition):
-    model = model.to(device)
+    #model = model.to(device)
     model.eval()
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
     total = 0
@@ -103,7 +103,7 @@ def test(model):
         correct += predicted.eq(targets).sum().item()
 
       #print(f'model acuracy: {correct/total}')
-    model = model.to('cpu')
+    #model = model.to('cpu')
     return correct/total
 
 def fine_tune(model,lr=0.001, max_iter=30):
@@ -135,7 +135,7 @@ def fine_tune(model,lr=0.001, max_iter=30):
 #main
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 info_dict = torch.load(args.model_path,map_location=torch.device('cpu')) #see format of .pth file in train function
-model = models.create_model(args.model) # ti make it general when we use different models
+model = models.create_model(args.model).to(device) # ti make it general when we use different models
 model.load_state_dict(info_dict['model'])
 
 ##analyze loaded model
@@ -144,7 +144,7 @@ print(f'total parameters of original model: {pytorch_total_params}')
 
 if device.type == 'cuda':
     testloader = dataset.create_testset(args.dataset)
-    # trainloader = dataset.create_trainset(args.dataset,args.batch_size)
+    trainloader = dataset.create_trainset(args.dataset,args.batch_size)
     pre_acc = test(model)
     print(f'original acc = {pre_acc}')
 
@@ -165,7 +165,6 @@ if device.type == 'cuda':
 
 ##fine_tune
 if args.fine_tune:
-    trainloader = dataset.create_trainset(args.dataset,args.batch_size)
     acc_log = fine_tune(decomp_model,args.lr,args.epoch)
     ft_decomp_acc = test(decomp_model)
     print(f'Decomp model accuracy after fine tuning: {ft_decomp_acc}')
