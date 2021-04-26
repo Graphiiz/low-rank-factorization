@@ -144,7 +144,7 @@ print(f'total parameters of original model: {pytorch_total_params}')
 
 if device.type == 'cuda':
     testloader = dataset.create_testset(args.dataset)
-    trainloader = dataset.create_trainset(args.dataset)
+    trainloader = dataset.create_trainset(args.dataset,args.batch_size)
     test(model)
 
 ##measure inference time
