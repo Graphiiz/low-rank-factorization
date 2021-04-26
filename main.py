@@ -40,7 +40,7 @@ parser.add_argument('--lr', type=float, default=0.001, help='epoch for fine tuni
 args = parser.parse_args()
 
 def measure_time(model,repetition):
-    model.to(device)
+    model = model.to(device)
     model.eval()
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
     total = 0
@@ -72,7 +72,7 @@ def measure_time(model,repetition):
         time_per_dataset.append(total_time)
         time_per_data.append(total_time/total)
 
-    model.cpu()
+    model = model.cpu()
     print(time_per_dataset)
     print(time_per_data)
     final_time_per_dataset = np.mean(time_per_dataset)
@@ -83,7 +83,7 @@ def measure_time(model,repetition):
     return final_time_per_dataset, final_time_per_data, std_time_per_dataset, std_time_per_data
 
 def test(model):
-    model.to(device)
+    model = model.to(device)
     model.eval()
     criterion = nn.CrossEntropyLoss()
     test_loss = 0 #to be used later, don't use it yet
@@ -103,11 +103,11 @@ def test(model):
         correct += predicted.eq(targets).sum().item()
 
       #print(f'model acuracy: {correct/total}')
-    model.to('cpu')
+    model = model.to('cpu')
     return correct/total
 
 def fine_tune(model,lr=0.001, max_iter=30):
-    model.to(device)
+    model = model.to(device)
     optimizer = optim.SGD(model.parameters(),lr = lr, momentum=0.9)
     criterion = nn.CrossEntropyLoss()
     scheduler = None
@@ -144,7 +144,7 @@ print(f'total parameters of original model: {pytorch_total_params}')
 
 if device.type == 'cuda':
     testloader = dataset.create_testset(args.dataset)
-    trainloader = dataset.create_trainset(args.dataset,args.batch_size)
+    # trainloader = dataset.create_trainset(args.dataset,args.batch_size)
     pre_acc = test(model)
     print(f'original acc = {pre_acc}')
 
@@ -158,7 +158,6 @@ if device.type == 'cuda':
 
 decomp_model = tucker_decomposition.decomp_model(model)
 print(decomp_model)
-decomp_model = decomp_model.float()
 
 if device.type == 'cuda':
     decomp_acc = test(decomp_model)
