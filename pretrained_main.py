@@ -26,11 +26,6 @@ import dataset
 import models
 import tucker_decomposition
 
-#pretrained model
-from cifar10_models.vgg import vgg11_bn, vgg13_bn, vgg16_bn, vgg19_bn
-from cifar10_models.resnet import resnet18, resnet34, resnet50
-from cifar10_models.densenet import densenet121, densenet161, densenet169
-
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10')
 
 parser.add_argument('--model_path', type=str, help='path to model')
@@ -45,7 +40,7 @@ parser.add_argument('--lr', type=float, default=0.001, help='epoch for fine tuni
 args = parser.parse_args()
 
 def measure_time(model,repetition):
-    model.to(device)
+    #model = model.to(device)
     model.eval()
     starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
     total = 0
@@ -77,7 +72,7 @@ def measure_time(model,repetition):
         time_per_dataset.append(total_time)
         time_per_data.append(total_time/total)
 
-    #model.cpu()
+    model = model.cpu()
     print(time_per_dataset)
     print(time_per_data)
     final_time_per_dataset = np.mean(time_per_dataset)
@@ -88,7 +83,7 @@ def measure_time(model,repetition):
     return final_time_per_dataset, final_time_per_data, std_time_per_dataset, std_time_per_data
 
 def test(model):
-    model.to(device)
+    model = model.to(device)
     model.eval()
     criterion = nn.CrossEntropyLoss()
     test_loss = 0 #to be used later, don't use it yet
@@ -108,11 +103,11 @@ def test(model):
         correct += predicted.eq(targets).sum().item()
 
       #print(f'model acuracy: {correct/total}')
-    #model.to('cpu')
+    #model = model.to('cpu')
     return correct/total
 
 def fine_tune(model,lr=0.001, max_iter=30):
-    model.to(device)
+    model = model.to(device)
     optimizer = optim.SGD(model.parameters(),lr = lr, momentum=0.9)
     criterion = nn.CrossEntropyLoss()
     scheduler = None
@@ -160,6 +155,7 @@ for model_name in model_names:
         print(np.mean(avg_total_time),np.std(std_total_time))
         print(np.mean(avg_time_per_data),np.std(std_time_per_data))
 
+    model = model.cpu()
     decomp_model = tucker_decomposition.decomp_model(model)
     print(decomp_model)
 
