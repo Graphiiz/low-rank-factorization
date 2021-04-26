@@ -77,7 +77,7 @@ def measure_time(model,repetition):
         time_per_dataset.append(total_time)
         time_per_data.append(total_time/total)
 
-    model.cpu()
+    #model.cpu()
     print(time_per_dataset)
     print(time_per_data)
     final_time_per_dataset = np.mean(time_per_dataset)
@@ -108,7 +108,7 @@ def test(model):
         correct += predicted.eq(targets).sum().item()
 
       #print(f'model acuracy: {correct/total}')
-    model.to('cpu')
+    #model.to('cpu')
     return correct/total
 
 def fine_tune(model,lr=0.001, max_iter=30):
@@ -117,7 +117,7 @@ def fine_tune(model,lr=0.001, max_iter=30):
     criterion = nn.CrossEntropyLoss()
     scheduler = None
     if max_iter > 5:
-        scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=5,gamma=0.1)
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer,milestones=[5,10,15],gamma=0.1)
     model.train()
     # train_loss = 0 #to be used later, don't use it yet
     # correct = 0

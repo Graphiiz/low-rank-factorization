@@ -112,7 +112,7 @@ def fine_tune(model,lr=0.001, max_iter=30):
     criterion = nn.CrossEntropyLoss()
     scheduler = None
     if max_iter > 5:
-        scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=5,gamma=0.1)
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer,milestones=[5,10,15],gamma=0.1)
     model.train()
     # train_loss = 0 #to be used later, don't use it yet
     # correct = 0
