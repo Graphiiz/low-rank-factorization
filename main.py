@@ -145,7 +145,9 @@ print(f'total parameters of original model: {pytorch_total_params}')
 if device.type == 'cuda':
     testloader = dataset.create_testset(args.dataset)
     trainloader = dataset.create_trainset(args.dataset,args.batch_size)
-    test(model)
+    pre_acc = test(model)
+    print(f'original acc = {pre_acc}')
+
 
 ##measure inference time
 if device.type == 'cuda':
@@ -156,6 +158,7 @@ if device.type == 'cuda':
 
 decomp_model = tucker_decomposition.decomp_model(model)
 print(decomp_model)
+decomp_model = decomp_model.float()
 
 if device.type == 'cuda':
     decomp_acc = test(decomp_model)
