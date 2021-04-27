@@ -171,6 +171,12 @@ def create_model(model_name):
 
     elif model_name.lower() == 'resnet50':
         return resnet50(pretrained=True)
+    
+    elif model_name.lower() == 'vgg11_bn':
+        return vgg11_bn(pretrained=True)
+
+    elif model_name.lower() == 'vgg13_bn':
+        return vgg11_bn(pretrained=True)
 
     else:
         exit(0)
