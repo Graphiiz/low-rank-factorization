@@ -135,7 +135,7 @@ def fine_tune(model,lr=0.001, max_iter=30):
 #main
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #model_names = ['vgg11_bn', 'vgg13_bn', 'vgg16_bn', 'vgg19_bn', 'resnet18', 'resnet34', 'resnet50', 'densenet121', 'densenet161', 'densenet169']
-model_names = ['resnet50','densenet121']
+model_names = ['vgg11_bn','vgg13_bn']
 for model_name in model_names:
     model = models.create_model(model_name)
 
@@ -146,7 +146,8 @@ for model_name in model_names:
     if device.type == 'cuda':
         testloader = dataset.create_testset(args.dataset)
         trainloader = dataset.create_trainset(args.dataset)
-        test(model)
+        pre_acc = test(model)
+        print(f'original acc = {pre_acc}')
 
     ##measure inference time
     if device.type == 'cuda':
