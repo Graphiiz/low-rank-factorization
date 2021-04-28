@@ -1,7 +1,7 @@
 # low-rank-factorization
 ## Pretrained weight 
 - You can get the pretrained weight of VGG11, VGG13 and VGG16 from https://github.com/huyvnphan/PyTorch_CIFAR10. 
-- Put the directory of pretrained weights and model from the [link](https://github.com/huyvnphan/PyTorch_CIFAR10) above in the same directory. Ex. /low-rank-factorization/Downloaded_pretrained_weigth_and_model
+- Put the directory of pretrained weights and model from the [link](https://github.com/huyvnphan/PyTorch_CIFAR10) above in the same directory. Ex. /low-rank-factorization/cifar10_models
 
 ## How to run the code
 ### Compress model with fine-tuning
