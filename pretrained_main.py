@@ -135,7 +135,7 @@ def fine_tune(model,lr=0.001, max_iter=30):
 #main
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #model_names = ['vgg11_bn', 'vgg13_bn', 'vgg16_bn', 'vgg19_bn', 'resnet18', 'resnet34', 'resnet50', 'densenet121', 'densenet161', 'densenet169']
-model_names = ['vgg11_bn','vgg13_bn']
+model_names = [args.model]
 for model_name in model_names:
     model = models.create_model(model_name)
 
@@ -145,7 +145,7 @@ for model_name in model_names:
 
     if device.type == 'cuda':
         testloader = dataset.create_testset(args.dataset)
-        trainloader = dataset.create_trainset(args.dataset)
+        trainloader = dataset.create_trainset(args.dataset,args.batch_size)
         pre_acc = test(model)
         print(f'original acc = {pre_acc}')
 
@@ -166,7 +166,7 @@ for model_name in model_names:
 
     ##fine_tune
     if args.fine_tune:
-        trainloader = dataset.create_trainset(args.dataset,args.batch_size)
+        #trainloader = dataset.create_trainset(args.dataset,args.batch_size)
         acc_log = fine_tune(decomp_model,args.lr,args.epoch)
         ft_decomp_acc = test(decomp_model)
         print(f'Decomp model accuracy after fine tuning: {ft_decomp_acc}')
