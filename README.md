@@ -3,7 +3,7 @@
 - You can get the pretrained weight of VGG11, VGG13 and VGG16 from https://github.com/huyvnphan/PyTorch_CIFAR10. 
 - Put the directory of pretrained weights and model from the [link](https://github.com/huyvnphan/PyTorch_CIFAR10) above in the same directory. Ex. /low-rank-factorization/cifar10_models
 
-## How to run the code
+## How to run the code (tucker decomposition)
 ### Compress model with fine-tuning
 
 `python pretrained_main.py --model vgg16_bn --dataset CIFAR10 --batch_size 128 --fine_tune --epoch 30 --lr 0.0001 --save`
