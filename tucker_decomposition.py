@@ -26,14 +26,9 @@ def decomp_layer(layer):
         if (any(r <= 0 for r in ranks)):
             print(f"One or more of the estimated ranks are 0 or less -> cannot do tucker decomposition -> Skip {layer}")
             return layer
-        # elif (np.prod(ranks) >= conv_layer.in_channels * conv_layer.out_channels):
-        #     print(f"np.prod(ranks) = {np.prod(ranks)} >= conv_layer.in_channels * conv_layer.out_channels) -> Tucker provides no compression. Skip {layer}")
-        #     return layer
         else:   
             #do tucker decomp
             decomped_layer = tucker_decomp_layer(layer,ranks)
-            #todo add data reconstruction optimization
-            # data_reconstruction_optimization(layer,decomped_layer)
             return decomped_layer
 
     elif type(layer) == nn.Linear:
@@ -42,7 +37,7 @@ def decomp_layer(layer):
         if rank <= 0:
             print(f'rank <=0 cannot do tucker1 decompostition -> skip {layer}')
             return layer
-        decomped_layer = svd_linear_layer(layer,rank)
+        decomped_layer = decomp_linear_layer(layer,rank)
         return decomped_layer
     else:
         return layer
@@ -84,7 +79,6 @@ def tucker_decomp_layer(layer,ranks):
         The ranks are estimated with a Python implementation of VBMF
         https://github.com/CasvandenBogaard/VBMF
     """
-    #mode=[0,1] -> 
     core, [last, first] = \
         partial_tucker(layer.weight.data.numpy(), \
             modes=[0, 1], rank=ranks, init='svd')
@@ -121,36 +115,20 @@ def tucker_decomp_layer(layer,ranks):
     new_layers = [first_layer, core_layer, last_layer]
     return nn.Sequential(*new_layers)
 
-def svd_linear_layer(layer,rank):
+def decomp_linear_layer(layer,rank):
     #linear layer is split into 2 linear layer, [fc_a=core,fc_b=last]
-    # core, [last] = tl.decomposition.partial_tucker(layer.weight.data.numpy(),modes=[0],rank = [rank],init='svd')
-    # fc_a = torch.nn.Linear(in_features=core.shape[1], out_features=core.shape[0], bias=False)
-    # fc_b = torch.nn.Linear(in_features=last.shape[1], out_features=last.shape[0], bias=True)
+    core, [last] = tl.decomposition.partial_tucker(layer.weight.data.numpy(),modes=[0],rank = [rank],init='svd')
+    fc_a = torch.nn.Linear(in_features=core.shape[1], out_features=core.shape[0], bias=False)
+    fc_b = torch.nn.Linear(in_features=last.shape[1], out_features=last.shape[0], bias=True)
     
-    # if layer.bias is not None:
-    #     fc_b.bias.data = layer.bias.data
-
-    # fc_b_weight = torch.from_numpy(last.copy()) #convert from numpy to torch tensor --if error occurs when you use torch.from_numpy(nd.array), use nd.array.copr() instead
-    # fc_a_weight = torch.from_numpy(core.copy()) #convert from numpy to torch tensor
-    # fc_b.weight.data = fc_b.weight.unsqueeze(-1).unsqueeze(-1)
-    # fc_a.weight.data = fc_a.weight
-
-    # new_layers = [fc_a, fc_b]
-    # return nn.Sequential(*new_layers)
-    [U, S, V] = tl.partial_svd(layer.weight.data.numpy(), rank)
-
-    first_layer = torch.nn.Linear(in_features=V.shape[1], out_features=V.shape[0], bias=False)
-    second_layer = torch.nn.Linear(in_features=U.shape[1], out_features=U.shape[0], bias=True)
-
     if layer.bias is not None:
-        second_layer.bias.data = layer.bias.data
-    #convert numpy to torch tensor
-    V = torch.from_numpy(V.copy())
-    S = torch.from_numpy(S.copy())
-    U = torch.from_numpy(U.copy())
+        fc_b.bias.data = layer.bias.data
 
-    first_layer.weight.data = (V.t() * S).t()
-    second_layer.weight.data = U
+    fc_b_weight = torch.from_numpy(last.copy()) #convert from numpy to torch tensor --if error occurs when you use torch.from_numpy(nd.array), use nd.array.copr() instead
+    fc_a_weight = torch.from_numpy(core.copy()) #convert from numpy to torch tensor
+    fc_b.weight.data = fc_b.weight
+    fc_a.weight.data = fc_a.weight
 
-    new_layers = [first_layer, second_layer]
+    new_layers = [fc_a, fc_b]
     return nn.Sequential(*new_layers)
+    
