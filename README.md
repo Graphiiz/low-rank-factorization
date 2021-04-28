@@ -18,7 +18,8 @@
  * --epoch 
  * --lr
  * --epoch
-
+### Wavelet decomposition code
+- See wavelet_compress.py
 ## Reference
 - Tucker Decomposition for convolutional layers is described here: https://arxiv.org/abs/1511.06530
 - VBMF for rank selection is described here: http://www.jmlr.org/papers/volume14/nakajima13a/nakajima13a.pdf
