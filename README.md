@@ -25,3 +25,4 @@
 - VBMF for rank selection is described here: http://www.jmlr.org/papers/volume14/nakajima13a/nakajima13a.pdf
 - VBMF code was taken from here: https://github.com/CasvandenBogaard/VBMF
 - Tensorly: https://github.com/tensorly/tensorly
+- For Tucker-Decomposition, we use the code from https://github.com/jacobgil/pytorch-tensor-decompositions 
